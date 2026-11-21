@@ -176,14 +176,14 @@ private def interactive_shell_command : String
   case File.basename(@shell_command)
   when "bash"
     rc_path = File.join(Dir.tempdir, "interms-bash-#{Process.pid}-#{Random.rand(1_i64..Int64::MAX)}.rc")
-    File.write(rc_path, "if [ -r \"$HOME/.bashrc\" ]; then . \"$HOME/.bashrc\"; fi\\nPS1='#{@prompt_marker}'\\nexport PS1\\n")
+    File.write(rc_path, "if [ -r \"$HOME/.bashrc\" ]; then . \"$HOME/.bashrc\"; fi\nPS1='#{@prompt_marker}'\nexport PS1\n")
     @startup_paths << rc_path
     "#{shell_quote(@shell_command)} --rcfile #{shell_quote(rc_path)} -i"
   when "zsh"
     rc_directory = File.join(Dir.tempdir, "interms-zsh-#{Process.pid}-#{Random.rand(1_i64..Int64::MAX)}")
     Dir.mkdir(rc_directory)
-    zshenv = "if [ -r \"$HOME/.zshenv\" ]; then source \"$HOME/.zshenv\"; fi\\nZDOTDIR='#{rc_directory}'; export ZDOTDIR\\n"
-    zshrc = "ZDOTDIR=\"$HOME\"; export ZDOTDIR\\nif [ -r \"$HOME/.zshrc\" ]; then source \"$HOME/.zshrc\"; fi\\nPS1='#{@prompt_marker}'\\n"
+    zshenv = "if [ -r \"$HOME/.zshenv\" ]; then source \"$HOME/.zshenv\"; fi\nZDOTDIR='#{rc_directory}'; export ZDOTDIR\n"
+    zshrc = "ZDOTDIR=\"$HOME\"; export ZDOTDIR\nif [ -r \"$HOME/.zshrc\" ]; then source \"$HOME/.zshrc\"; fi\nPS1='#{@prompt_marker}'\n"
     File.write(File.join(rc_directory, ".zshenv"), zshenv)
     File.write(File.join(rc_directory, ".zshrc"), zshrc)
     @startup_paths << rc_directory
