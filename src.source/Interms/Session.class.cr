@@ -65,7 +65,7 @@ def pty : PTY::Session
 end
 
 private def validate_name : Nil
-  unless @name.matches?(/\\A[a-zA-Z0-9][a-zA-Z0-9._-]{0,63}\\z/)
+  unless @name.matches?(/\A[a-zA-Z0-9][a-zA-Z0-9._-]{0,63}\z/)
     raise ArgumentError.new("Invalid session name: #{@name.inspect}")
   end
 end
