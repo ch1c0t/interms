@@ -23,7 +23,7 @@ module Interms
 
       begin
         mode.enter
-        STDOUT.print("\e[?1049h\e[?25l")
+        STDOUT.print("\e[?1049h")
         STDOUT.flush
         @running.set(true)
         rows, columns = TerminalMode.dimensions
@@ -184,7 +184,8 @@ module Interms
         break unless names.includes?("shell-#{index}")
         index += 1
       end
-      @manager.add("shell-#{index}", shell: :sh, cwd: Dir.current)
+      session = @manager.add("shell-#{index}", shell: :sh, cwd: Dir.current)
+      @manager.select(session.name)
     end
 
     private def close_active : Nil
@@ -212,7 +213,7 @@ module Interms
     end
 
     private def clear_screen : Nil
-      STDOUT.print("\e[0m\e[?25h\e[?1049l\e[?2004l\e[2J\e[H")
+      STDOUT.print("\e[0m\e[2J\e[H")
     end
 
   end
