@@ -12,6 +12,8 @@ def run : Nil
 
   begin
     mode.enter
+    STDOUT.print("\\e[?1049h\\e[?25l")
+    STDOUT.flush
     @running.set(true)
     rows, columns = TerminalMode.dimensions
     @manager.resize(rows, columns)
