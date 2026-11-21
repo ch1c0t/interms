@@ -17,7 +17,9 @@ describe Interms::Session do
       session.write("exit\n")
 
       deadline = Time.instant + 5.seconds
-      sleep 10.milliseconds while session.state == :running && Time.instant < deadline
+      while session.state == :running && Time.instant < deadline
+        sleep 10.milliseconds
+      end
       session.state.should eq(:exited)
     ensure
       session.stop
