@@ -16,6 +16,7 @@ getter name : String
 @ready = false
 @shell_finished = false
 @stopping = false
+@startup_paths = [] of String
 
 def initialize(
   @name : String,
@@ -31,8 +32,10 @@ def initialize(
   @shell_command = shell.is_a?(Symbol) ? shell.to_s : shell
   pty_environment = environment.dup
   pty_environment["PS1"] = "$ "
+  # Keep a predictable POSIX shell as the PTY control process. The requested
+  # interactive shell is launched inside it by #interactive_shell_command.
   @pty = PTY::Session.new(
-    shell,
+    :sh,
     rows: @rows,
     columns: @columns,
     name: @name,
@@ -167,7 +170,47 @@ private def interactive_command : String
   executable = shell_quote(@shell_command)
   prompt = @prompt_marker
   exit_marker = @exit_marker
-  "stty echo; PS1='#{prompt}'; export PS1; #{executable} -i; shell_status=$?; printf '%s' '#{exit_marker}'; exit \"$shell_status\""
+  "stty echo; PS1='#{prompt}'; export PS1; #{interactive_shell_command}; shell_status=$?; printf '%s' '#{exit_marker}'; exit \"$shell_status\""
+end
+
+private def interactive_shell_command : String
+  case File.basename(@shell_command)
+  when "bash"
+    rc_path = File.join(Dir.tempdir, "interms-bash-#{Process.pid}-#{Random.rand(1_i64..Int64::MAX)}.rc")
+    File.write(rc_path, "if [ -r \"$HOME/.bashrc\" ]; then . \"$HOME/.bashrc\"; fi\\nPS1='#{@prompt_marker}'\\nexport PS1\\n")
+    @startup_paths << rc_path
+    "#{shell_quote(@shell_command)} --rcfile #{shell_quote(rc_path)} -i"
+  when "zsh"
+    rc_directory = File.join(Dir.tempdir, "interms-zsh-#{Process.pid}-#{Random.rand(1_i64..Int64::MAX)}")
+    Dir.mkdir(rc_directory)
+    zshenv = "if [ -r \"$HOME/.zshenv\" ]; then source \"$HOME/.zshenv\"; fi\\nZDOTDIR='#{rc_directory}'; export ZDOTDIR\\n"
+    zshrc = "ZDOTDIR=\"$HOME\"; export ZDOTDIR\\nif [ -r \"$HOME/.zshrc\" ]; then source \"$HOME/.zshrc\"; fi\\nPS1='#{@prompt_marker}'\\n"
+    File.write(File.join(rc_directory, ".zshenv"), zshenv)
+    File.write(File.join(rc_directory, ".zshrc"), zshrc)
+    @startup_paths << rc_directory
+    "ZDOTDIR=#{shell_quote(rc_directory)} #{shell_quote(@shell_command)} -i"
+  when "fish"
+    init_command = "function fish_prompt; printf '%s' '#{@prompt_marker}'; end"
+    "#{shell_quote(@shell_command)} --no-config -i -C #{shell_quote(init_command)}"
+  else
+    "#{shell_quote(@shell_command)} -i"
+  end
+end
+
+private def cleanup_startup_paths : Nil
+  @startup_paths.each do |path|
+    if Dir.exists?(path)
+      Dir.glob(File.join(path, "*")).each do |child|
+        File.delete(child) if File.file?(child)
+      end
+      Dir.delete(path)
+    elsif File.exists?(path)
+      File.delete(path)
+    end
+  rescue
+    # Session teardown must not be blocked by temporary startup-file cleanup.
+  end
+  @startup_paths.clear
 end
 
 private def shell_quote(value : String) : String
@@ -194,6 +237,8 @@ private def run_interactive_shell(callback : Proc(Session, String, Nil)) : Nil
         @error = ex.message || ex.class.name
       end
     end
+  ensure
+    cleanup_startup_paths
   end
 end
 
