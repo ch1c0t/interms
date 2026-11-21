@@ -42,7 +42,7 @@ describe Interms::Session do
       session.start
       session.running?.should be_true
 
-      session.write("printf 'BASH_RC_OK=%s\\n' \"$INTERMS_BASHRC_VALUE\"\\n")
+      session.write("printf 'BASH_RC_OK=%s\\n' \"$INTERMS_BASHRC_VALUE\"\n")
       deadline = Time.instant + 5.seconds
       until session.output.includes?("BASH_RC_OK=from-user-rc") || Time.instant >= deadline
         sleep 10.milliseconds
