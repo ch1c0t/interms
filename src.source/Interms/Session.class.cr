@@ -167,7 +167,6 @@ def stop : Nil
 end
 
 private def interactive_command : String
-  executable = shell_quote(@shell_command)
   prompt = @prompt_marker
   exit_marker = @exit_marker
   "stty echo; PS1='#{prompt}'; export PS1; #{interactive_shell_command}; shell_status=$?; printf '%s' '#{exit_marker}'; exit \"$shell_status\""
@@ -200,7 +199,8 @@ end
 private def cleanup_startup_paths : Nil
   @startup_paths.each do |path|
     if Dir.exists?(path)
-      Dir.glob(File.join(path, "*")).each do |child|
+      [".zshenv", ".zshrc"].each do |name|
+        child = File.join(path, name)
         File.delete(child) if File.file?(child)
       end
       Dir.delete(path)
