@@ -60,6 +60,10 @@ manager = Interms::Manager.new(rows: 40, columns: 120)
 manager.add("shell", shell: :bash, cwd: Dir.current)
 manager.add("builder", shell: :bash, cwd: "/mnt/shared/grml-live-build")
 
+# Or register a PTY::Session that the application configured itself.
+pty = PTY::Session.new(:bash, rows: 40, columns: 120, cwd: Dir.current)
+manager.add("custom", pty)
+
 manager.on_output do |session, chunk|
   # Receive output from any session.
 end
@@ -78,7 +82,10 @@ lifecycle and forwards input to the active session. `on_output` receives
 Use `on_switch` to observe active-session changes.
 
 The lower-level `Interms::Session` abstraction is also public when an
-application needs to manage a PTY session directly.
+application needs to manage a PTY session directly. Construct one with shell
+options, or wrap an existing `PTY::Session` and register it with
+`Manager#add(session)`. Access the underlying object through
+`Interms::Session#pty`.
 
 ## Current rendering model and limitations
 
