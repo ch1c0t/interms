@@ -167,7 +167,10 @@ end
 private def add_shell : Nil
   index = 2
   names = @manager.session_names
-  index += 1 while names.includes?("shell-#{index}")
+  loop do
+    break unless names.includes?("shell-#{index}")
+    index += 1
+  end
   @manager.add("shell-#{index}", shell: :sh, cwd: Dir.current)
 end
 
