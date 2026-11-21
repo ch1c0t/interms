@@ -114,7 +114,7 @@ private def show_session_list : Nil
     else
       sessions.each_with_index do |session, index|
         marker = session.name == @manager.active_name ? "*" : " "
-        STDOUT.puts " #{marker} #{index + 1}  #{session.name.ljust(20)} #{session.state.upcase}"
+        STDOUT.puts " #{marker} #{index + 1}  #{session.name.ljust(20)} #{session.state.to_s.upcase}"
       end
     end
     STDOUT.puts ""
