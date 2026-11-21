@@ -2,11 +2,13 @@ name: Crystal
 
 on:
   push:
+    branches: [main]
   pull_request:
 
 jobs:
   build:
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     steps:
       - uses: actions/checkout@v4
       - uses: ruby/setup-ruby@v1
@@ -15,12 +17,14 @@ jobs:
           bundler-cache: true
       - uses: crystal-lang/install-crystal@v1
         with:
-          crystal: "1.22.0"
-      - name: Install shards
+          crystal: "1.22"
+      - name: Install Crystal dependencies
         run: shards install
       - name: Generate sources and build
         run: bundle exec rake
-      - name: Crystal specs
-        run: crystal spec
-      - name: Ruby CLI specs
+      - name: Check generated-source formatting
+        run: git diff --check
+      - name: Run Crystal specs
+        run: timeout 90s crystal spec --verbose
+      - name: Run CLI specs
         run: bundle exec rspec
