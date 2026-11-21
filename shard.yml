@@ -1,0 +1,9 @@
+---
+name: interms
+version: 0.0.0
+authors:
+- Anatoly Chernov <chertoly@gmail.com>
+targets:
+  interms:
+    main: src/bin/interms.cr
+crystal: ">= 1.20.3"
