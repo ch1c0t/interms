@@ -52,6 +52,29 @@ describe Interms::Manager do
     manager.session_names.should eq(["two", "three"])
   end
 
+
+  it "adopts a caller-created PTY::Session" do
+    pty = PTY::Session.new(:sh, rows: 30, columns: 100)
+    manager = Interms::Manager.new
+    session = manager.add("adopted", pty)
+
+    session.pty.should be(pty)
+    session.name.should eq("adopted")
+    manager.active_session.should eq(session)
+    session.resize(40, 120)
+    pty.rows.should eq(40)
+    pty.columns.should eq(120)
+  end
+
+  it "registers an Interms::Session created by the application" do
+    pty = PTY::Session.new(:bash)
+    session = Interms::Session.new("custom", pty, :bash)
+    manager = Interms::Manager.new
+
+    manager.add(session).should eq(session)
+    manager.session("custom").should eq(session)
+  end
+
   it "supports callbacks for output and session changes" do
     manager = Interms::Manager.new
     selected = [] of String
