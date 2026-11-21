@@ -12,7 +12,7 @@ def run : Nil
 
   begin
     mode.enter
-    STDOUT.print("\e[?1049h\e[?25l")
+    STDOUT.print("\e[?1049h")
     STDOUT.flush
     @running.set(true)
     rows, columns = TerminalMode.dimensions
@@ -202,5 +202,5 @@ private def show_message(message : String) : Nil
 end
 
 private def clear_screen : Nil
-  STDOUT.print("\e[0m\e[?25h\e[?1049l\e[?2004l\e[2J\e[H")
+  STDOUT.print("\e[0m\e[2J\e[H")
 end
