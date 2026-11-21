@@ -51,7 +51,10 @@ describe Interms::Session do
       session.output.should contain("BASH_RC_OK=from-user-rc")
     ensure
       session.stop
-      File.delete(bashrc) if File.exists?(bashrc)
+      [".bashrc", ".bash_history"].each do |name|
+        path = File.join(home, name)
+        File.delete(path) if File.exists?(path)
+      end
       Dir.delete(home) if Dir.exists?(home)
     end
   end
