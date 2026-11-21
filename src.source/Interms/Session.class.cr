@@ -39,7 +39,8 @@ def initialize(
     env: pty_environment,
     cwd: cwd
   )
-  initialize_markers
+  @prompt_marker = "__INTERMS_PROMPT_#{Process.pid}_#{Random.rand(1_i64..Int64::MAX)}__"
+  @exit_marker = "__INTERMS_EXIT_#{Process.pid}_#{Random.rand(1_i64..Int64::MAX)}__"
 end
 
 # Adopt an existing PTY::Session. The PTY must be a fresh session or an
@@ -55,7 +56,8 @@ def initialize(
   raise ArgumentError.new("Rows and columns must be positive") if @rows <= 0 || @columns <= 0
 
   @shell_command = interactive_shell.is_a?(Symbol) ? interactive_shell.to_s : interactive_shell
-  initialize_markers
+  @prompt_marker = "__INTERMS_PROMPT_#{Process.pid}_#{Random.rand(1_i64..Int64::MAX)}__"
+  @exit_marker = "__INTERMS_EXIT_#{Process.pid}_#{Random.rand(1_i64..Int64::MAX)}__"
 end
 
 def pty : PTY::Session
@@ -68,8 +70,4 @@ private def validate_name : Nil
   end
 end
 
-private def initialize_markers : Nil
-  @prompt_marker = "__INTERMS_PROMPT_#{Process.pid}_#{Random.rand(1_i64..Int64::MAX)}__"
-  @exit_marker = "__INTERMS_EXIT_#{Process.pid}_#{Random.rand(1_i64..Int64::MAX)}__"
-end
 
