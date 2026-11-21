@@ -1,9 +1,10 @@
 ---
 name: interms
-version: 0.0.0
+version: 0.1.0
 authors:
 - Anatoly Chernov <chertoly@gmail.com>
-targets:
-  interms:
-    main: src/bin/interms.cr
-crystal: ">= 1.20.3"
+crystal: ">= 1.22.0"
+dependencies:
+  pty:
+    github: ch1c0t/crystal.pty
+    branch: main

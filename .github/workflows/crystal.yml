@@ -1,0 +1,26 @@
+name: Crystal
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: ruby/setup-ruby@v1
+        with:
+          ruby-version: "3.3"
+          bundler-cache: true
+      - uses: crystal-lang/install-crystal@v1
+        with:
+          crystal: "1.22.0"
+      - name: Install shards
+        run: shards install
+      - name: Generate sources and build
+        run: bundle exec rake
+      - name: Crystal specs
+        run: crystal spec
+      - name: Ruby CLI specs
+        run: bundle exec rspec

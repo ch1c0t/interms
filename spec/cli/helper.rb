@@ -8,7 +8,7 @@ def cli string = ''
   exit_code = status.exitstatus
 
   unless exit_code == 0
-    fail "'#{command}' exited with the exit code #{exit_code}"
+    fail "'#{command}' exited with exit code #{exit_code}: #{stderr}"
   end
 
   [stdout, stderr]

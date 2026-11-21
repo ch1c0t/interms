@@ -1,15 +1,13 @@
 require_relative 'helper'
 
-describe 'something with RSpec' do
-  it 'allows to test Crystal code with Ruby' do
-    expect(true).to be true
-    expect(false).to be false
-  end
-end
-
 describe 'cli' do
   it 'prints a help message' do
     stdout = cli '--help'
-    expect(stdout.first).to start_with 'interms is'
+    expect(stdout.first).to include 'interms - switch between multiple interactive PTY sessions'
+  end
+
+  it 'prints the version' do
+    stdout = cli '--version'
+    expect(stdout.first.strip).to eq '0.1.0'
   end
 end
