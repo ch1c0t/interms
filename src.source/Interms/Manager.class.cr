@@ -103,3 +103,118 @@ def add(
   add(Session.new(name, pty, interactive_shell))
 end
 
+
+def start : self
+  configured = @mutex.synchronize do
+    raise "Manager has been stopped" if @stopped
+    return self if @started
+    @started = true
+    @order.compact_map { |name| @sessions[name]? }
+  end
+
+  begin
+    configured.each { |session| session.start(output_handler) }
+    notify_switch(active_session)
+    self
+  rescue ex
+    stop
+    raise ex
+  end
+end
+
+def select(name : String) : Session
+  selected = @mutex.synchronize do
+    @sessions[name]? || raise ArgumentError.new("Unknown session: #{name}")
+  end
+
+  changed = @mutex.synchronize do
+    previous = @active_name
+    @active_name = name
+    previous != name
+  end
+  notify_switch(selected) if changed
+  selected
+end
+
+def next_session : Session?
+  select_relative(1)
+end
+
+def previous_session : Session?
+  select_relative(-1)
+end
+
+def write(data : String) : Nil
+  selected = active_session || raise "No active session"
+  selected.write(data)
+end
+
+def resize(rows : Int32, columns : Int32) : Nil
+  raise ArgumentError.new("Rows and columns must be positive") if rows <= 0 || columns <= 0
+  current = @mutex.synchronize do
+    @rows = rows
+    @columns = columns
+    @order.compact_map { |name| @sessions[name]? }
+  end
+  current.each { |session| session.resize(rows, columns) }
+end
+
+def remove(name : String) : Session?
+  removed = nil.as(Session?)
+  next_active = nil.as(Session?)
+  active_changed = false
+
+  @mutex.synchronize do
+    removed = @sessions.delete(name)
+    return nil unless removed
+
+    index = @order.index(name) || 0
+    @order.delete_at(index)
+    if @active_name == name
+      @active_name = @order.empty? ? nil : @order[index % @order.size]?
+      next_active = @active_name.try { |active| @sessions[active]? }
+      active_changed = true
+    end
+  end
+
+  removed.not_nil!.stop
+  notify_switch(next_active) if active_changed && next_active
+  removed
+end
+
+def stop : Nil
+  configured = @mutex.synchronize do
+    return if @stopped
+    @stopped = true
+    @started = false
+    @order.compact_map { |name| @sessions[name]? }
+  end
+
+  configured.reverse_each { |session| session.stop }
+end
+
+private def select_relative(direction : Int32) : Session?
+  selected = @mutex.synchronize do
+    return nil if @order.empty?
+    current_index = @active_name ? (@order.index(@active_name.not_nil!) || 0) : 0
+    next_index = (current_index + direction) % @order.size
+    @active_name = @order[next_index]
+    @sessions[@active_name.not_nil!]
+  end
+
+  notify_switch(selected) if selected
+  selected
+end
+
+private def output_handler : Proc(Session, String, Nil)
+  ->(session : Session, chunk : String) do
+    callback = @mutex.synchronize { @output_callback }
+    callback.try &.call(session, chunk)
+  end
+end
+
+private def notify_switch(session : Session?) : Nil
+  return unless session
+  callback = @mutex.synchronize { @switch_callback }
+  callback.try &.call(session)
+end
