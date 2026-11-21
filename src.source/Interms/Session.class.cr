@@ -29,14 +29,14 @@ def initialize(
   raise ArgumentError.new("Rows and columns must be positive") if @rows <= 0 || @columns <= 0
 
   @shell_command = shell.is_a?(Symbol) ? shell.to_s : shell
-  @pty_environment = environment.dup
-  @pty_environment["PS1"] = "$ "
+  pty_environment = environment.dup
+  pty_environment["PS1"] = "$ "
   @pty = PTY::Session.new(
     shell,
     rows: @rows,
     columns: @columns,
     name: @name,
-    env: @pty_environment,
+    env: pty_environment,
     cwd: cwd
   )
   initialize_markers
