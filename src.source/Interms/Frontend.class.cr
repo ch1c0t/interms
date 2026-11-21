@@ -173,7 +173,8 @@ private def add_shell : Nil
     break unless names.includes?("shell-#{index}")
     index += 1
   end
-  @manager.add("shell-#{index}", shell: :sh, cwd: Dir.current)
+  session = @manager.add("shell-#{index}", shell: :sh, cwd: Dir.current)
+  @manager.select(session.name)
 end
 
 private def close_active : Nil
