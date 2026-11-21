@@ -87,14 +87,6 @@ def start(on_output : Proc(Session, String, Nil)? = nil) : self
     # Hide the command wrapper that PTY::Session#run writes to the parent
     # shell. The interactive child shell turns echo back on before prompting.
     @pty.write("stty -echo\n")
-    begin
-      @pty.wait_for("$ ", 2.seconds)
-    rescue
-      begin
-        @pty.wait_for("# ", 2.seconds)
-      rescue
-      end
-    end
 
     callback = on_output || ->(_session : Session, _chunk : String) { }
     spawn do
