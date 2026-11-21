@@ -155,7 +155,7 @@ private def interactive_command : String
   executable = shell_quote(@shell_command)
   prompt = @prompt_marker
   exit_marker = @exit_marker
-  "stty echo; PS1='#{prompt}'; export PS1; #{executable} -i; printf '%s' '#{exit_marker}'"
+  "stty echo; PS1='#{prompt}'; export PS1; #{executable} -i; shell_status=$?; printf '%s' '#{exit_marker}'; exit \"$shell_status\""
 end
 
 private def shell_quote(value : String) : String
@@ -209,7 +209,8 @@ private def receive_output(chunk : String, callback : Proc(Session, String, Nil)
         @pending = ""
         @shell_finished = true
       else
-        safe_bytes = @pending.bytesize - @exit_marker.bytesize + 1
+        suffix_bytes = matching_exit_marker_prefix
+        safe_bytes = @pending.bytesize - suffix_bytes
         if safe_bytes > 0
           emitted = @pending.byte_slice(0, safe_bytes) || ""
           @pending = @pending.byte_slice(safe_bytes, @pending.bytesize - safe_bytes) || ""
@@ -240,4 +241,14 @@ private def wait_until_ready : Nil
 
     sleep 10.milliseconds
   end
+end
+
+private def matching_exit_marker_prefix : Int32
+  maximum = {@pending.bytesize, @exit_marker.bytesize - 1}.min
+  maximum.downto(1) do |length|
+    suffix = @pending.byte_slice(@pending.bytesize - length, length)
+    prefix = @exit_marker.byte_slice(0, length)
+    return length if suffix == prefix
+  end
+  0
 end
