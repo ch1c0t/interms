@@ -4,22 +4,23 @@ require "random"
 
 module Interms
   extend self
-  
+
   VERSION = "0.1.0"
+
 
   class Frontend
     @manager : Manager
     @display_mutex = Sync::Mutex.new
     @menu_open = false
     @running = Atomic(Bool).new(false)
-    
+
     def initialize(@manager : Manager)
     end
-    
+
     def run : Nil
       mode = TerminalMode.new
       configure_callbacks
-    
+
       begin
         mode.enter
         STDOUT.print("\e[?1049h")
@@ -29,13 +30,13 @@ module Interms
         @manager.resize(rows, columns)
         @manager.start unless @manager.started?
         @display_mutex.synchronize { render_active }
-    
+
         spawn_resize_monitor
-    
+
         while @running.get
           byte = STDIN.read_byte
           break unless byte
-    
+
           if byte == 0
             handle_prefix
           else
@@ -54,7 +55,7 @@ module Interms
         STDOUT.flush
       end
     end
-    
+
     private def configure_callbacks : Nil
       @manager.on_output do |session, chunk|
         @display_mutex.synchronize do
@@ -64,12 +65,12 @@ module Interms
           end
         end
       end
-    
+
       @manager.on_switch do |_session|
         @display_mutex.synchronize { render_active unless @menu_open }
       end
     end
-    
+
     private def spawn_resize_monitor : Nil
       spawn do
         previous = TerminalMode.dimensions
@@ -84,11 +85,11 @@ module Interms
         end
       end
     end
-    
+
     private def handle_prefix : Nil
       key = STDIN.read_byte
       return unless key
-    
+
       case key
       when 'l'.ord
         show_session_list
@@ -111,7 +112,7 @@ module Interms
         end
       end
     end
-    
+
     private def show_session_list : Nil
       @display_mutex.synchronize do
         @menu_open = true
@@ -131,12 +132,12 @@ module Interms
         STDOUT.puts "Press 1–9 to select, or Escape to return."
         STDOUT.flush
       end
-    
+
       loop do
         byte = STDIN.read_byte
         break unless byte
         break if byte == 27 || byte == 'q'.ord
-    
+
         if byte >= '1'.ord && byte <= '9'.ord
           if session = @manager.sessions[byte - '1'.ord]?
             @manager.select(session.name)
@@ -150,7 +151,7 @@ module Interms
         render_active
       end
     end
-    
+
     private def show_help : Nil
       @display_mutex.synchronize do
         @menu_open = true
@@ -175,7 +176,7 @@ module Interms
         render_active
       end
     end
-    
+
     private def add_shell : Nil
       index = 2
       names = @manager.session_names
@@ -186,14 +187,14 @@ module Interms
       session = @manager.add("shell-#{index}", shell: :sh, cwd: Dir.current)
       @manager.select(session.name)
     end
-    
+
     private def close_active : Nil
       if name = @manager.active_name
         @manager.remove(name)
       end
       @display_mutex.synchronize { render_active }
     end
-    
+
     private def render_active : Nil
       clear_screen
       if session = @manager.active_session
@@ -203,17 +204,18 @@ module Interms
       end
       STDOUT.flush
     end
-    
+
     private def show_message(message : String) : Nil
       @display_mutex.synchronize do
         STDOUT.print("\r\n#{message}\r\n")
         STDOUT.flush
       end
     end
-    
+
     private def clear_screen : Nil
       STDOUT.print("\e[0m\e[2J\e[H")
     end
+
   end
 
   class Manager
@@ -227,49 +229,49 @@ module Interms
     @stopped = false
     @output_callback : Proc(Session, String, Nil)? = nil
     @switch_callback : Proc(Session, Nil)? = nil
-    
+
     def initialize(@rows : Int32 = 24, @columns : Int32 = 80)
       raise ArgumentError.new("Rows and columns must be positive") if @rows <= 0 || @columns <= 0
     end
-    
+
     def on_output(&callback : Session, String -> Nil) : self
       @mutex.synchronize { @output_callback = callback }
       self
     end
-    
+
     def on_switch(&callback : Session -> Nil) : self
       @mutex.synchronize { @switch_callback = callback }
       self
     end
-    
+
     def started? : Bool
       @mutex.synchronize { @started }
     end
-    
+
     def sessions : Array(Session)
       @mutex.synchronize do
         @order.compact_map { |name| @sessions[name]? }
       end
     end
-    
+
     def session_names : Array(String)
       @mutex.synchronize { @order.dup }
     end
-    
+
     def session(name : String) : Session?
       @mutex.synchronize { @sessions[name]? }
     end
-    
+
     def active_session : Session?
       @mutex.synchronize do
         @active_name.try { |name| @sessions[name]? }
       end
     end
-    
+
     def active_name : String?
       @mutex.synchronize { @active_name }
     end
-    
+
     def add(
       name : String,
       shell : String | Symbol = :sh,
@@ -278,17 +280,17 @@ module Interms
     ) : Session
       add(Session.new(name, shell: shell, rows: @rows, columns: @columns, cwd: cwd, environment: environment))
     end
-    
+
     # Register an Interms::Session that the application constructed itself.
     def add(created : Session) : Session
       name = created.name
       start_now = false
       became_active = false
-    
+
       @mutex.synchronize do
         raise "Manager has been stopped" if @stopped
         raise ArgumentError.new("Session already exists: #{name}") if @sessions.has_key?(name)
-    
+
         @sessions[name] = created
         @order << name
         if @active_name.nil?
@@ -297,7 +299,7 @@ module Interms
         end
         start_now = @started
       end
-    
+
       begin
         created.start(output_handler) if start_now
         notify_switch(created) if became_active && start_now
@@ -312,7 +314,7 @@ module Interms
         raise ex
       end
     end
-    
+
     # Convenience overload for adopting an existing PTY::Session.
     def add(
       name : String,
@@ -321,8 +323,8 @@ module Interms
     ) : Session
       add(Session.new(name, pty, interactive_shell))
     end
-    
-    
+
+
     def start : self
       configured = @mutex.synchronize do
         raise "Manager has been stopped" if @stopped
@@ -330,7 +332,7 @@ module Interms
         @started = true
         @order.compact_map { |name| @sessions[name]? }
       end
-    
+
       begin
         configured.each { |session| session.start(output_handler) }
         notify_switch(active_session)
@@ -340,12 +342,12 @@ module Interms
         raise ex
       end
     end
-    
+
     def select(name : String) : Session
       selected = @mutex.synchronize do
         @sessions[name]? || raise ArgumentError.new("Unknown session: #{name}")
       end
-    
+
       changed = @mutex.synchronize do
         previous = @active_name
         @active_name = name
@@ -354,20 +356,20 @@ module Interms
       notify_switch(selected) if changed
       selected
     end
-    
+
     def next_session : Session?
       select_relative(1)
     end
-    
+
     def previous_session : Session?
       select_relative(-1)
     end
-    
+
     def write(data : String) : Nil
       selected = active_session || raise "No active session"
       selected.write(data)
     end
-    
+
     def resize(rows : Int32, columns : Int32) : Nil
       raise ArgumentError.new("Rows and columns must be positive") if rows <= 0 || columns <= 0
       current = @mutex.synchronize do
@@ -377,16 +379,16 @@ module Interms
       end
       current.each { |session| session.resize(rows, columns) }
     end
-    
+
     def remove(name : String) : Session?
       removed = nil.as(Session?)
       next_active = nil.as(Session?)
       active_changed = false
-    
+
       @mutex.synchronize do
         removed = @sessions.delete(name)
         return nil unless removed
-    
+
         index = @order.index(name) || 0
         @order.delete_at(index)
         if @active_name == name
@@ -395,12 +397,12 @@ module Interms
           active_changed = true
         end
       end
-    
+
       removed.not_nil!.stop
       notify_switch(next_active) if active_changed && next_active
       removed
     end
-    
+
     def stop : Nil
       configured = @mutex.synchronize do
         return if @stopped
@@ -408,10 +410,10 @@ module Interms
         @started = false
         @order.compact_map { |name| @sessions[name]? }
       end
-    
+
       configured.reverse_each { |session| session.stop }
     end
-    
+
     private def select_relative(direction : Int32) : Session?
       selected = @mutex.synchronize do
         return nil if @order.empty?
@@ -420,33 +422,34 @@ module Interms
         @active_name = @order[next_index]
         @sessions[@active_name.not_nil!]
       end
-    
+
       notify_switch(selected) if selected
       selected
     end
-    
+
     private def output_handler : Proc(Session, String, Nil)
       ->(session : Session, chunk : String) do
         callback = @mutex.synchronize { @output_callback }
         callback.try &.call(session, chunk)
       end
     end
-    
+
     private def notify_switch(session : Session?) : Nil
       return unless session
       callback = @mutex.synchronize { @switch_callback }
       callback.try &.call(session)
     end
+
   end
 
   class Session
     getter name : String
-    
+
     @rows : Int32
     @columns : Int32
     @shell_command : String
     @pty : PTY::Session
-    
+
     @mutex = Sync::Mutex.new
     @state : Symbol = :created
     @exit_code : Int32? = nil
@@ -459,7 +462,7 @@ module Interms
     @shell_finished = false
     @stopping = false
     @startup_paths = [] of String
-    
+
     def initialize(
       @name : String,
       shell : String | Symbol = :sh,
@@ -470,7 +473,7 @@ module Interms
     )
       validate_name
       raise ArgumentError.new("Rows and columns must be positive") if @rows <= 0 || @columns <= 0
-    
+
       @shell_command = shell.is_a?(Symbol) ? shell.to_s : shell
       pty_environment = environment.dup
       pty_environment["PS1"] = "$ "
@@ -487,7 +490,7 @@ module Interms
       @prompt_marker = "__INTERMS_PROMPT_#{Process.pid}_#{Random.rand(1_i64..Int64::MAX)}__"
       @exit_marker = "__INTERMS_EXIT_#{Process.pid}_#{Random.rand(1_i64..Int64::MAX)}__"
     end
-    
+
     # Adopt an existing PTY::Session. The PTY must be a fresh session or an
     # interactive shell session that can accept the Interms startup commands.
     def initialize(
@@ -499,65 +502,65 @@ module Interms
       @rows = @pty.rows
       @columns = @pty.columns
       raise ArgumentError.new("Rows and columns must be positive") if @rows <= 0 || @columns <= 0
-    
+
       @shell_command = interactive_shell.is_a?(Symbol) ? interactive_shell.to_s : interactive_shell
       @prompt_marker = "__INTERMS_PROMPT_#{Process.pid}_#{Random.rand(1_i64..Int64::MAX)}__"
       @exit_marker = "__INTERMS_EXIT_#{Process.pid}_#{Random.rand(1_i64..Int64::MAX)}__"
     end
-    
+
     def pty : PTY::Session
       @pty
     end
-    
+
     private def validate_name : Nil
       unless @name.matches?(/\A[a-zA-Z0-9][a-zA-Z0-9._-]{0,63}\z/)
         raise ArgumentError.new("Invalid session name: #{@name.inspect}")
       end
     end
-    
+
     def state : Symbol
       @mutex.synchronize { @state }
     end
-    
+
     def running? : Bool
       state == :running
     end
-    
+
     def exit_code : Int32?
       @mutex.synchronize { @exit_code }
     end
-    
+
     def error : String?
       @mutex.synchronize { @error }
     end
-    
+
     # A snapshot of the raw terminal byte stream received since the child shell
     # displayed its first prompt.
     def output : String
       @mutex.synchronize { @output.to_s }
     end
-    
+
     def start(on_output : Proc(Session, String, Nil)? = nil) : self
       current = state
       return self if current == :running
       unless current == :created
         raise "Cannot start session '#{@name}' from state #{current}"
       end
-    
+
       @mutex.synchronize { @state = :starting }
-    
+
       begin
         @pty.start
-    
+
         # Hide the command wrapper that PTY::Session#run writes to the parent
         # shell. The interactive child shell turns echo back on before prompting.
         @pty.write("stty -echo\n")
-    
+
         callback = on_output || ->(_session : Session, _chunk : String) { }
         spawn do
           run_interactive_shell(callback)
         end
-    
+
         wait_until_ready
         self
       rescue ex
@@ -569,12 +572,12 @@ module Interms
         raise ex
       end
     end
-    
+
     def write(data : String) : Nil
       raise "Session '#{@name}' is not running (state: #{state})" unless running?
       @pty.write(data)
     end
-    
+
     def resize(rows : Int32, columns : Int32) : Nil
       raise ArgumentError.new("Rows and columns must be positive") if rows <= 0 || columns <= 0
       @rows = rows
@@ -583,7 +586,7 @@ module Interms
       @pty.columns = columns
       @pty.resize(rows, columns) if @pty.started?
     end
-    
+
     def stop : Nil
       should_terminate = @mutex.synchronize do
         case @state
@@ -598,22 +601,22 @@ module Interms
           true
         end
       end
-    
+
       return unless should_terminate
-    
+
       begin
         @pty.terminate if @pty.started?
       ensure
         @mutex.synchronize { @state = :stopped }
       end
     end
-    
+
     private def interactive_command : String
       prompt = @prompt_marker
       exit_marker = @exit_marker
       "stty echo; PS1='#{prompt}'; export PS1; #{interactive_shell_command}; shell_status=$?; printf '%s' '#{exit_marker}'; exit \"$shell_status\""
     end
-    
+
     private def interactive_shell_command : String
       case File.basename(@shell_command)
       when "bash"
@@ -637,7 +640,7 @@ module Interms
         "#{shell_quote(@shell_command)} -i"
       end
     end
-    
+
     private def cleanup_startup_paths : Nil
       @startup_paths.each do |path|
         if Dir.exists?(path)
@@ -654,17 +657,17 @@ module Interms
       end
       @startup_paths.clear
     end
-    
+
     private def shell_quote(value : String) : String
       "'" + value.gsub("'", "'\\''") + "'"
     end
-    
+
     private def run_interactive_shell(callback : Proc(Session, String, Nil)) : Nil
       begin
         result = @pty.run(interactive_command) do |chunk|
           receive_output(chunk, callback)
         end
-    
+
         @mutex.synchronize do
           @exit_code = result.status
           unless @stopping
@@ -683,13 +686,13 @@ module Interms
         cleanup_startup_paths
       end
     end
-    
+
     private def receive_output(chunk : String, callback : Proc(Session, String, Nil)) : Nil
       emitted = ""
-    
+
       @mutex.synchronize do
         @pending += chunk
-    
+
         unless @ready
           if index = @pending.index(@prompt_marker)
             emitted = @pending.byte_slice(index, @pending.bytesize - index) || ""
@@ -716,32 +719,32 @@ module Interms
             end
           end
         end
-    
+
         @output.write(emitted.to_slice) unless emitted.empty?
       end
-    
+
       callback.call(self, emitted) unless emitted.empty?
     end
-    
+
     private def wait_until_ready : Nil
       deadline = Time.instant + 10.seconds
-    
+
       loop do
         current = state
         return if current == :running
-    
+
         if current == :failed || current == :exited || current == :stopped
           raise "Session '#{@name}' failed to start: #{error || current}"
         end
-    
+
         if Time.instant >= deadline
           raise "Timed out waiting for the interactive shell prompt in '#{@name}'"
         end
-    
+
         sleep 10.milliseconds
       end
     end
-    
+
     private def matching_exit_marker_prefix : Int32
       maximum = {@pending.bytesize, @exit_marker.bytesize - 1}.min
       maximum.downto(1) do |length|
@@ -751,35 +754,55 @@ module Interms
       end
       0
     end
+
   end
 
   class TerminalMode
     @saved_state : String? = nil
-    
+
     def enter : Nil
       raise "interms needs a TTY on both stdin and stdout" unless STDIN.tty? && STDOUT.tty?
-    
+
+      # Process.run closes child stdin by default. stty reads terminal settings
+      # from stdin, so explicitly inherit the caller's terminal descriptor.
       state = IO::Memory.new
-      status = Process.run("stty", ["-g"], output: state, error: STDERR)
+      status = Process.run(
+        "stty",
+        ["-g"],
+        input: Process::Redirect::Inherit,
+        output: state,
+        error: STDERR
+      )
       raise "Could not read terminal settings with stty -g" unless status.success?
       @saved_state = state.to_s.strip
-    
-      status = Process.run("stty", ["raw", "-echo", "min", "1", "time", "0"], error: STDERR)
+
+      status = Process.run(
+        "stty",
+        ["raw", "-echo", "min", "1", "time", "0"],
+        input: Process::Redirect::Inherit,
+        error: STDERR
+      )
       raise "Could not enable raw terminal mode" unless status.success?
     end
-    
+
     def restore : Nil
       if state = @saved_state
-        Process.run("stty", [state], error: STDERR)
+        Process.run("stty", [state], input: Process::Redirect::Inherit, error: STDERR)
         @saved_state = nil
       end
     rescue
       nil
     end
-    
+
     def self.dimensions : Tuple(Int32, Int32)
       output = IO::Memory.new
-      status = Process.run("stty", ["size"], output: output, error: IO::Memory.new)
+      status = Process.run(
+        "stty",
+        ["size"],
+        input: Process::Redirect::Inherit,
+        output: output,
+        error: IO::Memory.new
+      )
       if status.success?
         values = output.to_s.split
         if values.size == 2
@@ -792,5 +815,6 @@ module Interms
     rescue
       {24, 80}
     end
+
   end
 end

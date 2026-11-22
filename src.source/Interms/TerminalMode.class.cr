@@ -3,18 +3,31 @@
 def enter : Nil
   raise "interms needs a TTY on both stdin and stdout" unless STDIN.tty? && STDOUT.tty?
 
+  # Process.run closes child stdin by default. stty reads terminal settings
+  # from stdin, so explicitly inherit the caller's terminal descriptor.
   state = IO::Memory.new
-  status = Process.run("stty", ["-g"], output: state, error: STDERR)
+  status = Process.run(
+    "stty",
+    ["-g"],
+    input: Process::Redirect::Inherit,
+    output: state,
+    error: STDERR
+  )
   raise "Could not read terminal settings with stty -g" unless status.success?
   @saved_state = state.to_s.strip
 
-  status = Process.run("stty", ["raw", "-echo", "min", "1", "time", "0"], error: STDERR)
+  status = Process.run(
+    "stty",
+    ["raw", "-echo", "min", "1", "time", "0"],
+    input: Process::Redirect::Inherit,
+    error: STDERR
+  )
   raise "Could not enable raw terminal mode" unless status.success?
 end
 
 def restore : Nil
   if state = @saved_state
-    Process.run("stty", [state], error: STDERR)
+    Process.run("stty", [state], input: Process::Redirect::Inherit, error: STDERR)
     @saved_state = nil
   end
 rescue
@@ -23,7 +36,13 @@ end
 
 def self.dimensions : Tuple(Int32, Int32)
   output = IO::Memory.new
-  status = Process.run("stty", ["size"], output: output, error: IO::Memory.new)
+  status = Process.run(
+    "stty",
+    ["size"],
+    input: Process::Redirect::Inherit,
+    output: output,
+    error: IO::Memory.new
+  )
   if status.success?
     values = output.to_s.split
     if values.size == 2
