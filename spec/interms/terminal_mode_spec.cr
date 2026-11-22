@@ -18,7 +18,7 @@ describe Interms::TerminalMode do
         Interms::TerminalMode.new.enter
       end
 
-      error.message.should contain("interms needs a TTY")
+      error.message.not_nil!.should contain("interms needs a TTY")
     end
   end
 end
