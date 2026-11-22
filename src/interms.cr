@@ -763,6 +763,8 @@ module Interms
     def enter : Nil
       raise "interms needs a TTY on both stdin and stdout" unless STDIN.tty? && STDOUT.tty?
 
+      # Process.run closes child stdin by default. stty reads terminal settings
+      # from stdin, so explicitly inherit the caller's terminal descriptor.
       state = IO::Memory.new
       status = Process.run(
         "stty",
