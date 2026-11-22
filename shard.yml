@@ -8,3 +8,6 @@ dependencies:
   pty:
     github: ch1c0t/crystal.pty
     branch: main
+targets:
+  interms:
+    main: src/bin/interms.cr

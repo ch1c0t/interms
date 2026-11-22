@@ -51,4 +51,3 @@ rescue error
 ensure
   manager.stop
 end
-
